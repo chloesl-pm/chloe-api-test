@@ -17,7 +17,7 @@
 
 Kakao Cloud Pub/Sub API Swagger 자동화 테스트 도구.
 
-- `index.html`: 브라우저 기반 UI 테스트 도구 (수정 금지)
+- `index.html`: 브라우저 기반 UI 테스트 도구 (수정 금지) — Claude Code와 함께 기획·제작한 하네스 이전의 원형 툴. 이 툴의 시나리오 구조(SCENARIOS, extract/inject/assert)와 인증 패턴을 기반으로 현재 CLI 하네스가 구축됨
 - `swagger/`: API 스펙 파일 4종 (console_v1/v2, pubsub_v1/v2)
 - `.claude/`: 하네스 에이전트·스킬 (CLI 기반 자동화)
 - `_workspace/`: 테스트 실행 시 생성되는 중간/결과 파일 (런타임 생성)
