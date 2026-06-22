@@ -1619,7 +1619,7 @@ async function refreshSubList() {
   const url = `${base}/v1/domains/${encodeURIComponent(domainVal)}/projects/${encodeURIComponent(projectVal)}/${endpoint}`;
 
   try {
-    const useProxy = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const useProxy = location.protocol !== 'file:';
     let data;
     if (useProxy) {
       const r = await fetch('/proxy', {
@@ -2679,7 +2679,7 @@ async function _loadParamList(id, mode) {
   const url = `${base}/v1/domains/${encodeURIComponent(domainVal)}/projects/${encodeURIComponent(projectVal)}/${endpoint}`;
 
   try {
-    const useProxy = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const useProxy = location.protocol !== 'file:';
     let data;
     if (useProxy) {
       const r = await fetch('/proxy', {
@@ -2856,7 +2856,7 @@ async function executeApi(fileIdx, ep, globalSubName = null, globalTopicName = n
     const isAutoFilled =
       (DOMAIN_ALIASES.includes(p.name)  && autoDomainId)  ||
       (PROJECT_ALIASES.includes(p.name) && autoProjectId);
-    const val = el ? el.value.trim() : '';
+    const val = applyTemplateVars(el ? el.value.trim() : '');
     if (!val && !isAutoFilled) return;
     if (!val) return; // auto-filled ones are already in resolvedPath
     const pKey = resolvedParamKey(p.name);
@@ -3294,7 +3294,7 @@ async function fetchAuthToken() {
 
   try {
     let token = null;
-    const useProxy = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const useProxy = location.protocol !== 'file:';
 
     const iamUrl = getIamTokenUrl();
     if (useProxy) {

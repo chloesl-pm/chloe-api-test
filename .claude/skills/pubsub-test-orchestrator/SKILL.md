@@ -38,7 +38,7 @@ Agent(
   spec-analyst 에이전트 역할로 작업한다.
   [에이전트 정의 내용 삽입]
 
-  작업 경로: /Users/kakao_ent/chloe_workspace/api_test_tool/pubsub-swagger-harness
+  작업 경로: /Users/kakao_ent/chloe_workspace/api_test_tool/analytics-api-test-tool
   - ./swagger/console_v1.json, console_v2.json, pubsub_v1.json, pubsub_v2.json 파싱
   - ./index.html에서 SCENARIOS, API_META, ENVIRONMENTS 추출
   - 결과를 _workspace/spec-analysis.json에 저장
