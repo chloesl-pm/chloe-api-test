@@ -156,6 +156,32 @@ Agent(
 
 ---
 
+## Phase 6: QA 검증
+
+Phase 5 리포트 생성 완료 후 qa-validator 에이전트를 호출해 품질을 교차 검증한다.
+
+```
+Agent(
+  description="QA 품질 교차 검증",
+  subagent_type="general-purpose",
+  model="opus",
+  prompt="""
+  qa-validator 에이전트 역할로 작업한다.
+  [에이전트 정의 내용 삽입]
+
+  작업 경로: /Users/kakao_ent/chloe_workspace/api_test_tool/analytics-api-test-tool
+  스펙 파일: _workspace/spec-analysis.json
+  결과 파일: _workspace/test-results.json
+  5가지 항목(커버리지, assert품질, 스키마, 리소스누수, SLA)을 검증하고
+  _workspace/qa-report.md 생성 후 종합 점수를 콘솔에 출력
+  """
+)
+```
+
+완료 후 `_workspace/qa-report.md` 경로를 사용자에게 안내한다.
+
+---
+
 ## 에러 핸들링
 
 | 오류 상황 | 처리 |

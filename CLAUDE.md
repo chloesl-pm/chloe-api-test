@@ -10,6 +10,7 @@
 | 날짜 | 변경 내용 | 대상 | 사유 |
 |------|----------|------|------|
 | 2026-06-15 | 초기 구성 | 전체 | index.html 분석 기반 신규 구축 |
+| 2026-06-23 | QA 검증 에이전트·스킬 추가 | qa-validator | 테스트 품질 검증 역할 신규 추가 |
 
 ---
 
@@ -29,6 +30,7 @@ Kakao Cloud Pub/Sub API Swagger 자동화 테스트 도구.
 | `spec-analyst` | Swagger JSON + index.html 시나리오 파싱 |
 | `api-test-runner` | HTTP API 실행, extract/inject/assert 처리 |
 | `result-reporter` | 결과 분석 및 Markdown 리포트 생성 |
+| `qa-validator` | 커버리지·assert품질·스키마·누수·SLA 교차 검증 |
 
 ## 스킬 구성
 
@@ -38,3 +40,4 @@ Kakao Cloud Pub/Sub API Swagger 자동화 테스트 도구.
 | `swagger-spec-reader` | Swagger JSON 파싱 패턴 |
 | `scenario-executor` | API 시나리오 실행 패턴 (extract/inject/assert) |
 | `test-report-generator` | 결과 리포트 생성 패턴 |
+| `qa-validator` | 테스트 품질 교차 검증 패턴 (커버리지·품질·스키마·누수·SLA) |
