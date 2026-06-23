@@ -1,13 +1,15 @@
 ---
-name: pubsub-test-orchestrator
-description: Kakao Cloud Pub/Sub Swagger API 자동화 테스트를 처음부터 끝까지 실행한다. "테스트 실행", "시나리오 실행", "API 검증", "전체 실행", "s1 실행", "s2 실행", "QA 시나리오 돌려줘", "결과 리포트", "API 테스트해줘", "시나리오 돌려줘", "다시 실행", "재실행", "특정 시나리오만" 등 테스트 관련 모든 요청 시 반드시 이 스킬을 사용할 것. index.html의 시나리오 정의를 CLI에서 에이전트가 실행하고 결과를 리포트한다.
+name: orchestrator
+description: Pub/Sub API 자동화 테스트 전체 워크플로우를 지휘한다. "테스트 실행", "시나리오 실행", "API 검증", "전체 실행", "s1 실행", "s2 실행", "QA 시나리오 돌려줘", "결과 리포트", "API 테스트해줘", "시나리오 돌려줘", "다시 실행", "재실행", "특정 시나리오만" 등 테스트 관련 모든 요청 시 반드시 이 에이전트를 사용할 것.
+model: opus
+tools: Bash, Read, Write
 ---
 
 ## 목적
 
-index.html에 정의된 Pub/Sub API 시나리오(setup→apis→teardown, assert/extract/inject)를 브라우저 없이 CLI 에이전트가 실행한다.
+index.html에 정의된 Pub/Sub API 시나리오(setup→apis→teardown, assert/extract/inject)를 브라우저 없이 CLI에서 에이전트 파이프라인으로 실행한다.
 
-**실행 모드:** 서브 에이전트 패턴 (단계별 순차 파이프라인)
+**실행 모드:** 단계별 순차 파이프라인 (spec → auth → 시나리오 선택 → 실행 → 검증·리포트)
 
 ---
 
@@ -32,12 +34,9 @@ spec-analyst 에이전트를 호출해 Swagger 파일과 index.html 시나리오
 ```
 Agent(
   description="Swagger 스펙 + index.html 시나리오 파싱",
-  subagent_type="Explore",
+  subagent_type="spec-analyst",
   model="opus",
   prompt="""
-  spec-analyst 에이전트 역할로 작업한다.
-  [에이전트 정의 내용 삽입]
-
   작업 경로: /Users/kakao_ent/chloe_workspace/api_test_tool/analytics-api-test-tool
   - ./swagger/console_v1.json, console_v2.json, pubsub_v1.json, pubsub_v2.json 파싱
   - ./index.html에서 SCENARIOS, API_META, ENVIRONMENTS 추출
@@ -63,7 +62,6 @@ echo "BASE_URL: $PUBSUB_BASE_URL"
 ```
 
 **2단계: 없으면 사용자에게 질문**
-다음 정보를 요청한다:
 - Domain-ID
 - Project-ID
 - Base URL (예: `https://pub-sub.kr-central-2.kakaocloud.com`)
@@ -116,12 +114,9 @@ api-test-runner 에이전트를 서브 에이전트로 호출한다.
 ```
 Agent(
   description="시나리오 {id} 실행",
-  subagent_type="general-purpose",
+  subagent_type="api-test-runner",
   model="opus",
   prompt="""
-  api-test-runner 에이전트 역할로 작업한다.
-  [에이전트 정의 내용 삽입]
-
   실행할 시나리오: {scenario_id}
   스펙 파일: _workspace/spec-analysis.json
   Auth: domain_id={domain_id}, project_id={project_id}, token={token}, base_url={base_url}
@@ -132,53 +127,29 @@ Agent(
 
 ---
 
-## Phase 5: 리포트 생성
+## Phase 5: 검증 및 리포트
 
-result-reporter 에이전트를 호출한다.
-
-```
-Agent(
-  description="테스트 결과 리포트 생성",
-  subagent_type="general-purpose",
-  model="opus",
-  prompt="""
-  result-reporter 에이전트 역할로 작업한다.
-  [에이전트 정의 내용 삽입]
-
-  결과 파일: _workspace/test-results.json
-  환경: {env}, Base URL: {base_url}
-  _workspace/report.md 생성 후 콘솔에 요약 출력
-  """
-)
-```
-
-완료 후 `_workspace/report.md` 경로를 사용자에게 안내한다.
-
----
-
-## Phase 6: QA 검증
-
-Phase 5 리포트 생성 완료 후 qa-validator 에이전트를 호출해 품질을 교차 검증한다.
+qa-validator 에이전트를 호출해 리포트 생성과 품질 교차 검증을 함께 수행한다.
 
 ```
 Agent(
-  description="QA 품질 교차 검증",
-  subagent_type="general-purpose",
+  description="테스트 결과 리포트 생성 및 QA 품질 교차 검증",
+  subagent_type="qa-validator",
   model="opus",
   prompt="""
-  qa-validator 에이전트 역할로 작업한다.
-  [에이전트 정의 내용 삽입]
-
   작업 경로: /Users/kakao_ent/chloe_workspace/api_test_tool/analytics-api-test-tool
-  스펙 파일: _workspace/spec-analysis.json
   결과 파일: _workspace/test-results.json
-  5가지 항목(커버리지, assert품질, 스키마, 리소스누수, SLA)을 검증하고
-  _workspace/qa-report.md 생성 후 종합 점수를 콘솔에 출력
+  스펙 파일: _workspace/spec-analysis.json
+  환경: {env}, Base URL: {base_url}
+
+  1. _workspace/report.md 생성 (실행 결과 Markdown 리포트)
+  2. _workspace/qa-report.md 생성 (커버리지·assert품질·스키마·누수·SLA 검증)
+  콘솔에 요약 출력
   """
 )
 ```
 
-완료 후 `_workspace/qa-report.md` 경로를 사용자에게 안내한다.
+완료 후 `_workspace/report.md`, `_workspace/qa-report.md` 경로를 사용자에게 안내한다.
 
 ---
 

@@ -1,23 +1,96 @@
 ---
 name: qa-validator
-description: 테스트 결과와 Swagger 스펙을 교차 검증해 품질을 평가한다. 커버리지 측정, assert 품질 검사, 스키마 검증, 리소스 누수 탐지, QA 리포트 생성 요청 시 이 에이전트를 사용한다.
+description: 테스트 결과 리포트 생성과 품질 교차 검증을 담당한다. Markdown 리포트 작성, 커버리지 측정, assert 품질 검사, 스키마 검증, 리소스 누수 탐지, SLA 검증, QA 리포트 생성 요청 시 이 에이전트를 사용한다.
 model: opus
 tools: Read, Write, Bash
 ---
 
 ## 핵심 역할
 
-`_workspace/spec-analysis.json`과 `_workspace/test-results.json`을 교차 분석해:
-1. **커버리지 검증**: Swagger 엔드포인트 대비 시나리오 커버율 측정
-2. **Assert 품질 검사**: assert 규칙이 충분한지 평가
-3. **스키마 검증**: 응답 body가 Swagger 정의와 일치하는지 확인
-4. **리소스 누수 탐지**: teardown 누락 또는 DELETE 실패 감지
-5. **SLA 준수 검증**: 응답 시간 기준 초과 스텝 집계
-6. 결과를 `_workspace/qa-report.md`에 저장
+`_workspace/test-results.json`과 `_workspace/spec-analysis.json`을 읽어 두 가지를 순서대로 수행한다:
+
+**[1단계] 실행 결과 리포트 생성** → `_workspace/report.md`
+**[2단계] QA 품질 교차 검증** → `_workspace/qa-report.md`
 
 ---
 
-## 1. 커버리지 검증
+## 1단계: 실행 결과 리포트 생성
+
+### 리포트 구조
+
+```markdown
+# Pub/Sub API 테스트 리포트
+
+**실행 일시:** {datetime}
+**환경:** {env} | **Base URL:** {base_url}
+
+---
+
+## 전체 요약
+
+| 항목 | 값 |
+|------|-----|
+| 전체 스텝 | {total} |
+| 성공 | ✅ {pass} |
+| 실패 | ❌ {fail} |
+| Assert 실패 | ⚠️ {assert_fail} |
+| 총 소요시간 | {total_time}ms |
+
+---
+
+## 시나리오별 결과
+
+### {emoji} {scenario_name} — {PASS/FAIL}
+
+| # | Method | 경로 | 상태 | 시간 | 결과 |
+|---|--------|------|------|------|------|
+| 1 | PUT    | ...  | 200  | 123ms| ✅   |
+
+**Assert 상세:**
+- ✅ statusRange 200~299 (실제: 200)
+- ✅ bodyExists .name (실제: my-topic)
+
+**추출된 컨텍스트:** `topicName = my-topic`
+
+---
+
+## 실패 상세
+...
+
+## 권고 사항
+...
+```
+
+### 상태 아이콘 규칙
+
+| 상황 | 아이콘 |
+|------|--------|
+| HTTP 성공 + assert 전체 통과 | ✅ |
+| HTTP 성공 + assert 일부 실패 | ⚠️ |
+| HTTP 실패 (4xx/5xx) | ❌ |
+| 네트워크/기타 오류 | 🔌 |
+
+### 실패 원인 분류
+
+| HTTP 코드 | 가능한 원인 |
+|-----------|------------|
+| 401 | X-Auth-Token 만료 — 재발급 필요 |
+| 403 | 권한 없음 — Domain-ID/Project-ID 확인 |
+| 404 | 리소스 없음 — path 파라미터 값 확인 |
+| 400 | 잘못된 요청 — Request Body 스키마 확인 |
+| 5xx | 서버 오류 — 백엔드 로그 확인 필요 |
+| null | 네트워크 오류 / 서버 미응답 |
+
+### SLA 기준
+
+- console API (dashboard, quota, service): **2000ms**
+- pubsub API (topics, subscriptions, publish, pull): **3000ms**
+
+---
+
+## 2단계: QA 품질 교차 검증
+
+### ① 커버리지 검증
 
 ```python
 def calc_coverage(spec_analysis, test_results):
@@ -40,11 +113,7 @@ def calc_coverage(spec_analysis, test_results):
     }
 ```
 
----
-
-## 2. Assert 품질 검사
-
-각 스텝의 assert 규칙을 평가한다:
+### ② Assert 품질 검사
 
 | 등급 | 조건 |
 |------|------|
@@ -63,18 +132,13 @@ def check_assert_quality(step):
     return 'GOOD'
 ```
 
----
-
-## 3. 스키마 검증
-
-응답 body의 실제 필드가 Swagger 정의 requiredKeys를 모두 포함하는지 확인한다:
+### ③ 스키마 검증
 
 ```python
 def validate_schema(step, spec_analysis):
     issues = []
     try:
         body = json.loads(step.get('body', '{}'))
-        # spec_analysis에서 해당 엔드포인트의 응답 스키마 찾기
         for f in spec_analysis['swaggerFiles']:
             for ep in f['endpoints']:
                 if step['method'] == ep['method'] and ep['path'] in step.get('path',''):
@@ -87,11 +151,7 @@ def validate_schema(step, spec_analysis):
     return issues
 ```
 
----
-
-## 4. 리소스 누수 탐지
-
-teardown에서 DELETE 실패한 리소스를 탐지한다:
+### ④ 리소스 누수 탐지
 
 ```python
 def detect_leaks(test_results):
@@ -107,9 +167,7 @@ def detect_leaks(test_results):
     return leaks
 ```
 
----
-
-## 5. SLA 검증
+### ⑤ SLA 검증
 
 ```python
 SLA_MS = {'dashboard': 2000, 'quota': 2000, 'service': 2000, 'default': 3000}
@@ -130,83 +188,44 @@ def check_sla_violations(test_results):
     return violations
 ```
 
----
-
-## 출력: `_workspace/qa-report.md`
+### QA 리포트 구조
 
 ```markdown
 # QA 검증 리포트
 
 **검증 일시:** {datetime}
 
----
-
 ## 1. 커버리지
-
 | 항목 | 값 |
-|------|-----|
 | 전체 엔드포인트 | {total} |
 | 테스트된 엔드포인트 | {covered} |
 | 커버율 | {rate}% |
 
-### 미테스트 엔드포인트
-- `GET /v1/.../topics` — 미실행
-
----
-
 ## 2. Assert 품질
-
 | 등급 | 스텝 수 |
-|------|--------|
 | ✅ GOOD | {good} |
-| ⚠️ WEAK (status only) | {weak} |
+| ⚠️ WEAK | {weak} |
 | ❌ NONE | {none} |
 
-### 개선 필요 스텝
-- 시나리오 s3 Step 2: assert 없음 → bodyExists 추가 권고
-
----
-
 ## 3. 스키마 검증
-
-| 결과 | 건수 |
-|------|------|
-| ✅ 일치 | {ok} |
-| ❌ 필드 누락 | {fail} |
-
----
-
 ## 4. 리소스 누수
-
-{누수 없음 또는 누수 목록}
-
----
-
 ## 5. SLA 초과
 
-{초과 없음 또는 초과 목록}
-
----
-
 ## 종합 평가
-
-| 항목 | 점수 |
-|------|------|
-| 커버리지 | {rate}% |
-| Assert 품질 | {good_rate}% GOOD |
-| 스키마 준수 | {schema_rate}% |
-| SLA 준수 | {sla_rate}% |
+| 커버리지 30% + Assert품질 30% + 스키마 20% + 누수 10% + SLA 10% |
 | **종합** | **{total_score}/100** |
-
-## 권고 사항
-
-1. ...
 ```
 
 ---
 
+## 출력
+
+- `_workspace/report.md`: 실행 결과 Markdown 리포트
+- `_workspace/qa-report.md`: QA 품질 검증 리포트
+- 콘솔: `전체 {N}개 스텝 — ✅ {pass}개 성공 / ❌ {fail}개 실패 | QA 종합: {score}/100`
+
 ## 에러 핸들링
 
-- `spec-analysis.json` 없음: "스펙 분석 파일이 없습니다. Phase 1을 먼저 실행하세요." 출력
-- `test-results.json` 없음: "테스트 결과 파일이 없습니다. 시나리오를 먼저 실행하세요." 출력
-- 스키마 비교 실패: 해당 스텝 스킵 후 경고 기록
+- `test-results.json` 없음: "테스트 결과가 없습니다. 먼저 시나리오를 실행하세요." 출력
+- `spec-analysis.json` 없음: 커버리지·스키마 검증 스킵, 나머지만 수행
+- 결과가 빈 배열: "실행된 시나리오가 없습니다." 출력
