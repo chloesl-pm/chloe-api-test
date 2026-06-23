@@ -779,8 +779,8 @@
 <!-- ─── Config (사용자 수정 영역) ──────────────────────────────────── -->
 <script>
 const ENVIRONMENTS = [
-  { name: 'dev',   label: '🔧 Dev',   baseUrl: '', iamUrl: 'https://iam.kakaocloud-stg.com/identity/v3/auth/tokens' },
   { name: 'stage', label: '🧪 Stage', baseUrl: '', iamUrl: 'https://iam.kakaocloud-stg.com/identity/v3/auth/tokens' },
+  { name: 'dev',   label: '🔧 CBT',   baseUrl: '', iamUrl: 'https://iam.kakaocloud-stg.com/identity/v3/auth/tokens' },
   { name: 'prod',  label: '🚀 Prod',  baseUrl: '', iamUrl: 'https://iam.kakaocloud.com/identity/v3/auth/tokens' },
 ];
 let activeEnv = ENVIRONMENTS[0];
@@ -1490,32 +1490,42 @@ const STORAGE_KEYS  = { domainId: 'sc_did', projectId: 'sc_pid', credId: 'sc_cid
 ══════════════════════════════════════════════════════════════════════ */
 const PLAIN_FIELDS = ['baseUrl'];
 
-function saveAuth() {
+function saveEnvAuth(envName) {
   for (const [id, key] of Object.entries(STORAGE_KEYS)) {
     const val = document.getElementById(id).value;
+    const k = key + '_' + envName;
     if (val) {
       const encoded = PLAIN_FIELDS.includes(id) ? val : btoa(unescape(encodeURIComponent(val)));
-      localStorage.setItem(key, encoded);
+      localStorage.setItem(k, encoded);
     } else {
-      localStorage.removeItem(key);
+      localStorage.removeItem(k);
     }
   }
+}
+
+function loadEnvAuth(envName) {
+  for (const [id, key] of Object.entries(STORAGE_KEYS)) {
+    const raw = localStorage.getItem(key + '_' + envName);
+    const el = document.getElementById(id);
+    if (raw) {
+      try {
+        el.value = PLAIN_FIELDS.includes(id) ? raw : decodeURIComponent(escape(atob(raw)));
+      } catch { localStorage.removeItem(key + '_' + envName); el.value = ''; }
+    } else {
+      el.value = '';
+    }
+  }
+  updateSavedNotice();
+}
+
+function saveAuth() {
+  saveEnvAuth(activeEnv.name);
   flashSavedNotice();
   alert('인증 정보가 저장되었습니다.');
 }
 
 function loadAuth() {
-  for (const [id, key] of Object.entries(STORAGE_KEYS)) {
-    const raw = localStorage.getItem(key);
-    if (raw) {
-      try {
-        document.getElementById(id).value = PLAIN_FIELDS.includes(id)
-          ? raw
-          : decodeURIComponent(escape(atob(raw)));
-      } catch { localStorage.removeItem(key); }
-    }
-  }
-  updateSavedNotice();
+  loadEnvAuth(activeEnv.name);
 }
 
 function flashSavedNotice() {
@@ -1523,9 +1533,9 @@ function flashSavedNotice() {
 }
 
 function updateSavedNotice() {
+  const envName = activeEnv.name;
   const hasAny = SECURE_FIELDS.some(id => {
-    const key = STORAGE_KEYS[id];
-    return !!localStorage.getItem(key);
+    return !!localStorage.getItem(STORAGE_KEYS[id] + '_' + envName);
   });
   document.getElementById('savedNotice').classList.toggle('show', hasAny);
 }
@@ -1545,7 +1555,8 @@ function showClearDialog() { document.getElementById('clearOverlay').classList.a
 function hideClearDialog()  { document.getElementById('clearOverlay').classList.remove('show'); }
 
 function clearAll() {
-  Object.values(STORAGE_KEYS).forEach(k => localStorage.removeItem(k));
+  const envName = activeEnv.name;
+  Object.entries(STORAGE_KEYS).forEach(([, k]) => localStorage.removeItem(k + '_' + envName));
   SECURE_FIELDS.forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('baseUrl').value = '';
   hideClearDialog();
@@ -3080,10 +3091,11 @@ function initEnvSelect() {
 }
 
 function onEnvChange(idx) {
+  saveEnvAuth(activeEnv.name);
   activeEnv = ENVIRONMENTS[parseInt(idx)] || ENVIRONMENTS[0];
   localStorage.setItem('sc_env', idx);
-  const baseInput = document.getElementById('baseUrl');
-  if (activeEnv.baseUrl) baseInput.value = activeEnv.baseUrl;
+  loadEnvAuth(activeEnv.name);
+  if (activeEnv.baseUrl) document.getElementById('baseUrl').value = activeEnv.baseUrl;
   updateTokenBtnTooltip();
 }
 
@@ -3323,7 +3335,7 @@ async function fetchAuthToken() {
     }
 
     document.getElementById('authToken').value = token;
-    localStorage.setItem(STORAGE_KEYS.authToken, btoa(unescape(encodeURIComponent(token))));
+    localStorage.setItem(STORAGE_KEYS.authToken + '_' + activeEnv.name, btoa(unescape(encodeURIComponent(token))));
     updateSavedNotice();
 
     _tokenLastRefreshed = new Date();
@@ -3423,8 +3435,18 @@ window.addEventListener('beforeunload', e => {
 
 
 /* ── Init ─────────────────────────────────────────────────────────── */
-loadAuth();
 initEnvSelect();
+(function migrateStorage() {
+  const envName = activeEnv.name;
+  const hasNewData = Object.values(STORAGE_KEYS).some(k => localStorage.getItem(k + '_' + envName));
+  if (!hasNewData) {
+    for (const [, key] of Object.entries(STORAGE_KEYS)) {
+      const old = localStorage.getItem(key);
+      if (old) { localStorage.setItem(key + '_' + envName, old); localStorage.removeItem(key); }
+    }
+  }
+})();
+loadAuth();
 loadVarsFromStorage();
 renderVarsTable();
 loadAllSwagger().then(() => renderScenarioSelect());
