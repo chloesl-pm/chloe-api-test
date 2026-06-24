@@ -15,6 +15,8 @@
 | 2026-06-23 | QA 검증 에이전트·스킬 추가 | qa-validator | 테스트 품질 검증 역할 신규 추가 |
 | 2026-06-23 | 기획 에이전트·스킬 추가 | service-planner | 유저 저니·우선순위·통합 시나리오 기획 역할 신규 추가 |
 | 2026-06-23 | 에이전트/스킬 구조 재정의 | 전체 | 중복 제거 및 역할 분리 |
+| 2026-06-24 | Service Registry 패턴 도입 | index.html | Pub/Sub + Data Query 멀티 서비스 지원, 환경별 비활성화 |
+| 2026-06-24 | ux-designer 에이전트·스킬 추가 | ux-designer, ui-style-guide | UI 레이아웃 진단·수정 역할 신규 추가 |
 
 ---
 
@@ -38,6 +40,7 @@ Kakao Cloud Pub/Sub API Swagger 자동화 테스트 도구.
 | `api-test-runner` | HTTP API 실행, extract/inject/assert 처리 |
 | `qa-validator` | 실행 결과 리포트 생성 + 품질 교차 검증 |
 | `service-planner` | 유저 저니·비즈니스 임팩트·통합 시나리오 기획 |
+| `ux-designer` | index.html UI/UX 진단·수정 (레이아웃, 정렬, 스타일 일관성) |
 
 ## 스킬 구성
 
@@ -49,3 +52,4 @@ Kakao Cloud Pub/Sub API Swagger 자동화 테스트 도구.
 | `scenario-executor` | api-test-runner | API 시나리오 실행 패턴 (extract/inject/assert) |
 | `test-report-generator` | qa-validator | 결과 리포트 생성 패턴 |
 | `qa-checklist` | qa-validator | 품질 검증 5개 항목 체크리스트 (커버리지·assert·스키마·누수·SLA) |
+| `ui-style-guide` | ux-designer | 디자인 시스템 기준 (높이 30px 통일, CSS 변수, 레이아웃 패턴) |

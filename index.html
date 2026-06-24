@@ -62,30 +62,87 @@
     .app-header .subtitle { font-size: 12px; color: var(--text-muted); }
     .header-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
 
+    /* ─── Env Button Group ──────────────────────────────────────── */
+    .env-btn-group { display: flex; gap: 4px; }
+    .env-opt-wrap { position: relative; display: inline-block; }
+    .env-opt-wrap[data-disabled="true"] { cursor: not-allowed; }
+    .env-opt-wrap[data-disabled="true"]:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      font-size: 11px;
+      white-space: nowrap;
+      padding: 4px 8px;
+      border-radius: 4px;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .env-opt-wrap[data-disabled="true"]:hover::before {
+      content: '';
+      position: absolute;
+      bottom: calc(100% + 2px);
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: #333;
+      pointer-events: none;
+      z-index: 100;
+    }
+    .env-btn {
+      height: 30px;
+      padding: 0 10px;
+      font-size: 12px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      cursor: pointer;
+      transition: background .15s, color .15s, border-color .15s;
+      white-space: nowrap;
+      box-sizing: border-box;
+      line-height: 1;
+    }
+    .env-btn:hover:not(:disabled) { background: var(--bg); border-color: var(--primary); }
+    .env-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .env-btn:disabled { opacity: 0.38; cursor: not-allowed; pointer-events: none; }
+
     /* ─── Auth Panel ─────────────────────────────────────────────── */
     .auth-panel {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
-      padding: 12px 20px;
+      padding: 10px 20px;
       flex-shrink: 0;
     }
     .auth-panel-inner {
       display: flex;
-      gap: 12px;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .auth-row {
+      display: flex;
+      gap: 10px;
       align-items: flex-end;
       flex-wrap: wrap;
+    }
+    .auth-row + .auth-row {
+      padding-top: 6px;
+      border-top: 1px solid var(--border);
     }
     .auth-field {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
     }
     .auth-field label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 600;
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: .04em;
+      letter-spacing: .05em;
     }
     .input-wrap {
       position: relative;
@@ -95,16 +152,20 @@
     .input-wrap input {
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 6px 32px 6px 10px;
+      padding: 0 10px;
+      height: 30px;
       font-size: 13px;
       background: var(--surface2);
       color: var(--text);
       outline: none;
       transition: border-color .15s;
+      box-sizing: border-box;
     }
+    .input-wrap input.has-eye { padding-right: 30px; }
     .input-wrap input:focus { border-color: var(--primary); background: #fff; }
-    .input-wrap input.wide { width: 220px; }
-    .input-wrap input.medium { width: 160px; }
+    .input-wrap input.wide   { width: 240px; }
+    .input-wrap input.medium { width: 150px; }
+    .input-wrap input.narrow { width: 110px; }
     .eye-btn {
       position: absolute;
       right: 6px;
@@ -785,6 +846,12 @@ const ENVIRONMENTS = [
 ];
 let activeEnv = ENVIRONMENTS[0];
 
+const SERVICES = [
+  { id: 'pubsub',    name: '📨 Pub/Sub',    swaggerFiles: ['console_v1','console_v2','pubsub_v1','pubsub_v2'], supportedEnvs: ['stage','dev','prod'] },
+  { id: 'dataquery', name: '🔍 Data Query', swaggerFiles: ['dataquery_v1'],                                   supportedEnvs: ['dev','prod'] },
+];
+let activeService = SERVICES[0];
+
 const SWAGGER_FILES = [
   { name: "console_v1", file: "./swagger/console_v1.json" },
   { name: "console_v2", file: "./swagger/console_v2.json" },
@@ -811,76 +878,93 @@ const SWAGGER_FILES = [
 <!-- Auth Panel -->
 <section class="auth-panel">
 
-  <!-- Row 1: Fields + Buttons -->
   <div class="auth-panel-inner">
 
-    <div class="auth-field">
-      <label>Environment</label>
-      <select id="envSelect" onchange="onEnvChange(this.value)"
-        style="border:1px solid var(--border);border-radius:var(--radius);
-               padding:6px 10px;font-size:13px;background:var(--surface2);
-               color:var(--text);outline:none;height:32px">
-      </select>
-    </div>
+    <!-- Row 1: Service / Environment / Base URL -->
+    <div class="auth-row">
+      <div class="auth-field">
+        <label>Service</label>
+        <select id="serviceSelect" onchange="onServiceChange(this.value)"
+          style="border:1px solid var(--border);border-radius:var(--radius);
+                 padding:0 10px;font-size:13px;background:var(--surface2);
+                 color:var(--text);outline:none;height:30px;box-sizing:border-box">
+        </select>
+      </div>
 
-    <div class="auth-field">
-      <label>Domain-ID</label>
-      <div class="input-wrap">
-        <input type="password" id="domainId" class="medium" placeholder="domain-id" autocomplete="off" />
-        <button class="eye-btn" onclick="toggleEye('domainId', this)" title="보기/숨기기">👁</button>
+      <div class="auth-field">
+        <label>Environment</label>
+        <div id="envBtnGroup" class="env-btn-group"></div>
+      </div>
+
+      <div class="auth-field">
+        <label>Base URL</label>
+        <div class="input-wrap">
+          <input type="text" id="baseUrl" class="wide" placeholder="https://..." autocomplete="off" />
+        </div>
       </div>
     </div>
 
-    <div class="auth-field">
-      <label>Project-ID</label>
-      <div class="input-wrap">
-        <input type="password" id="projectId" class="medium" placeholder="project-id" autocomplete="off" />
-        <button class="eye-btn" onclick="toggleEye('projectId', this)" title="보기/숨기기">👁</button>
+    <!-- Row 2: Auth fields + Buttons -->
+    <div class="auth-row">
+      <div class="auth-field">
+        <label>Domain-ID</label>
+        <div class="input-wrap">
+          <input type="password" id="domainId" class="narrow has-eye" placeholder="domain-id" autocomplete="off" />
+          <button class="eye-btn" onclick="toggleEye('domainId', this)" title="보기/숨기기">👁</button>
+        </div>
       </div>
-    </div>
 
-    <div class="auth-field">
-      <label>Credential-ID</label>
-      <div class="input-wrap">
-        <input type="password" id="credId" class="medium" placeholder="credential-id" autocomplete="off" />
-        <button class="eye-btn" onclick="toggleEye('credId', this)" title="보기/숨기기">👁</button>
+      <div class="auth-field">
+        <label>Project-ID</label>
+        <div class="input-wrap">
+          <input type="password" id="projectId" class="narrow has-eye" placeholder="project-id" autocomplete="off" />
+          <button class="eye-btn" onclick="toggleEye('projectId', this)" title="보기/숨기기">👁</button>
+        </div>
       </div>
-    </div>
 
-    <div class="auth-field">
-      <label>Credential-Secret</label>
-      <div class="input-wrap">
-        <input type="password" id="credSecret" class="medium" placeholder="credential-secret" autocomplete="off" />
-        <button class="eye-btn" onclick="toggleEye('credSecret', this)" title="보기/숨기기">👁</button>
+      <div class="auth-field">
+        <label>Credential-ID</label>
+        <div class="input-wrap">
+          <input type="password" id="credId" class="medium has-eye" placeholder="credential-id" autocomplete="off" />
+          <button class="eye-btn" onclick="toggleEye('credId', this)" title="보기/숨기기">👁</button>
+        </div>
       </div>
-    </div>
 
-    <div class="auth-field">
-      <label>X-Auth-Token</label>
-      <div class="input-wrap">
-        <input type="password" id="authToken" class="wide" placeholder="bearer token" autocomplete="off" />
-        <button class="eye-btn" onclick="toggleEye('authToken', this)" title="보기/숨기기">👁</button>
+      <div class="auth-field">
+        <label>Credential-Secret</label>
+        <div class="input-wrap">
+          <input type="password" id="credSecret" class="medium has-eye" placeholder="credential-secret" autocomplete="off" />
+          <button class="eye-btn" onclick="toggleEye('credSecret', this)" title="보기/숨기기">👁</button>
+        </div>
       </div>
-    </div>
 
-    <!-- 버튼 그룹 (X-Auth-Token 바로 옆, flex-end 정렬로 input과 나란히) -->
-    <div style="display:flex;gap:6px;align-items:center;align-self:flex-end;flex:1">
-      <button class="btn-primary btn-sm" id="tokenFetchBtn" onclick="fetchAuthToken()"
-        title="⏰ 12시간마다 자동 갱신&#10;Credential-ID / Credential-Secret 으로 IAM 토큰 자동 발급 후&#10;11시간 30분마다 자동으로 재발급됩니다">🔑 발급</button>
-      <button class="btn-primary btn-sm" onclick="saveAuth()">💾 저장</button>
-      <button class="btn-ghost btn-sm" onclick="showClearDialog()">🗑 전체 초기화</button>
-      <div style="margin-left:auto;display:flex;gap:6px">
-        <button class="btn-ghost btn-sm" onclick="openVarsModal()" title="body JSON 안에서 {{변수명}} 으로 사용할 값을 미리 정의합니다">📝 변수 설정</button>
-        <button class="btn-ghost btn-sm" onclick="clearAllBodies()" title="모든 API의 Request Body를 Swagger 스펙 기본값으로 되돌립니다">🔄 Body 원복</button>
+      <div class="auth-field">
+        <label>X-Auth-Token</label>
+        <div class="input-wrap">
+          <input type="password" id="authToken" class="wide has-eye" placeholder="bearer token" autocomplete="off" />
+          <button class="eye-btn" onclick="toggleEye('authToken', this)" title="보기/숨기기">👁</button>
+        </div>
       </div>
-    </div>
 
-  </div>
+      <!-- 버튼 그룹 -->
+      <div style="display:flex;gap:6px;align-items:flex-end;flex:1">
+        <button class="btn-primary btn-sm" id="tokenFetchBtn" onclick="fetchAuthToken()"
+          title="⏰ 12시간마다 자동 갱신&#10;Credential-ID / Credential-Secret 으로 IAM 토큰 자동 발급 후&#10;11시간 30분마다 자동으로 재발급됩니다">🔑 발급</button>
+        <button class="btn-primary btn-sm" onclick="saveAuth()">💾 저장</button>
+        <button class="btn-ghost btn-sm" onclick="showClearDialog()">🗑 초기화</button>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn-ghost btn-sm" onclick="openVarsModal()" title="body JSON 안에서 {{변수명}} 으로 사용할 값을 미리 정의합니다">📝 변수 설정</button>
+          <button class="btn-ghost btn-sm" onclick="clearAllBodies()" title="모든 API의 Request Body를 Swagger 스펙 기본값으로 되돌립니다">🔄 Body 원복</button>
+        </div>
+      </div>
+
+    </div><!-- /.auth-row Row2 -->
+
+  </div><!-- /.auth-panel-inner -->
 
   <div id="tokenRefreshStatus" style="font-size:11px;color:var(--text-muted);white-space:nowrap;margin-top:4px"></div>
 
 </section>
-<input type="hidden" id="baseUrl" />
 
 <!-- Run Params Modal -->
 <div class="overlay" id="runParamsOverlay" onclick="if(event.target===this)closeRunParamsModal()">
@@ -1472,8 +1556,9 @@ function getScenarioEndpoints(fileIdx, scenario) {
 }
 
 /* ── State ─────────────────────────────────────────────────────────── */
-let swaggerData   = {};   // { fileIndex: { spec, endpoints[] } }
+let swaggerData   = {};   // { fileIndex: { spec, endpoints[], name } }
 let activeFile    = 0;
+let _activeSwaggerFiles = SWAGGER_FILES.filter(f => SERVICES[0].swaggerFiles.includes(f.name));
 let activeScenario = null; // null = 전체
 let results       = {};   // { `${fileIndex}:${method}:${path}` : resultObj }
 let savedBodies    = {};   // 사용자가 편집·저장한 Request Body { key: string }
@@ -1483,24 +1568,38 @@ let selectedKey   = null;
 
 /* ── Masked fields list ─────────────────────────────────────────────── */
 const SECURE_FIELDS = ['domainId', 'projectId', 'credId', 'credSecret', 'authToken'];
-const STORAGE_KEYS  = { domainId: 'sc_did', projectId: 'sc_pid', credId: 'sc_cid', credSecret: 'sc_csec', authToken: 'sc_tok', baseUrl: 'sc_url' };
+const STORAGE_KEYS  = { domainId: 'sc_did', projectId: 'sc_pid', credId: 'sc_cid', credSecret: 'sc_csec', authToken: 'sc_tok' };
+// baseUrl은 서비스+환경별로 별도 관리: sc_url_{serviceId}_{envName}
 
 /* ══════════════════════════════════════════════════════════════════════
    AUTH
 ══════════════════════════════════════════════════════════════════════ */
-const PLAIN_FIELDS = ['baseUrl'];
+const PLAIN_FIELDS = [];
+
+function getBaseUrlKey() {
+  return `sc_url_${activeService.id}_${activeEnv.name}`;
+}
+function saveBaseUrl() {
+  const val = document.getElementById('baseUrl').value.trim();
+  if (val) localStorage.setItem(getBaseUrlKey(), val);
+  else localStorage.removeItem(getBaseUrlKey());
+}
+function loadBaseUrl() {
+  const val = localStorage.getItem(getBaseUrlKey());
+  document.getElementById('baseUrl').value = val || activeEnv.baseUrl || '';
+}
 
 function saveEnvAuth(envName) {
   for (const [id, key] of Object.entries(STORAGE_KEYS)) {
     const val = document.getElementById(id).value;
     const k = key + '_' + envName;
     if (val) {
-      const encoded = PLAIN_FIELDS.includes(id) ? val : btoa(unescape(encodeURIComponent(val)));
-      localStorage.setItem(k, encoded);
+      localStorage.setItem(k, btoa(unescape(encodeURIComponent(val))));
     } else {
       localStorage.removeItem(k);
     }
   }
+  saveBaseUrl();
 }
 
 function loadEnvAuth(envName) {
@@ -1508,13 +1607,13 @@ function loadEnvAuth(envName) {
     const raw = localStorage.getItem(key + '_' + envName);
     const el = document.getElementById(id);
     if (raw) {
-      try {
-        el.value = PLAIN_FIELDS.includes(id) ? raw : decodeURIComponent(escape(atob(raw)));
-      } catch { localStorage.removeItem(key + '_' + envName); el.value = ''; }
+      try { el.value = decodeURIComponent(escape(atob(raw))); }
+      catch { localStorage.removeItem(key + '_' + envName); el.value = ''; }
     } else {
       el.value = '';
     }
   }
+  loadBaseUrl();
   updateSavedNotice();
 }
 
@@ -1557,6 +1656,7 @@ function hideClearDialog()  { document.getElementById('clearOverlay').classList.
 function clearAll() {
   const envName = activeEnv.name;
   Object.entries(STORAGE_KEYS).forEach(([, k]) => localStorage.removeItem(k + '_' + envName));
+  localStorage.removeItem(getBaseUrlKey());
   SECURE_FIELDS.forEach(id => { document.getElementById(id).value = ''; });
   document.getElementById('baseUrl').value = '';
   hideClearDialog();
@@ -1778,16 +1878,22 @@ function getMaskedHeaders(headers) {
    SWAGGER LOADING
 ══════════════════════════════════════════════════════════════════════ */
 async function loadAllSwagger() {
-  for (let i = 0; i < SWAGGER_FILES.length; i++) {
+  const serviceFiles = activeService.swaggerFiles;
+  swaggerData = {};
+  activeFile = 0;
+  const filtered = SWAGGER_FILES.filter(f => serviceFiles.includes(f.name));
+  for (let i = 0; i < filtered.length; i++) {
     try {
-      const res  = await fetch(SWAGGER_FILES[i].file);
+      const res  = await fetch(filtered[i].file);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const spec = await res.json();
-      swaggerData[i] = { spec, endpoints: parseEndpoints(spec) };
+      swaggerData[i] = { spec, endpoints: parseEndpoints(spec), name: filtered[i].name };
     } catch (e) {
-      swaggerData[i] = { spec: null, endpoints: [], error: e.message };
+      swaggerData[i] = { spec: null, endpoints: [], error: e.message, name: filtered[i].name };
     }
   }
+  // renderTabs가 SWAGGER_FILES를 직접 참조하므로 임시로 교체
+  _activeSwaggerFiles = filtered;
   renderTabs();
   renderApiList();
   updateStats();
@@ -1825,7 +1931,7 @@ function parseEndpoints(spec) {
 function renderTabs() {
   const sel = document.getElementById('fileSelect');
   sel.innerHTML = '';
-  SWAGGER_FILES.forEach((f, i) => {
+  _activeSwaggerFiles.forEach((f, i) => {
     const d   = swaggerData[i];
     const cnt = d ? d.endpoints.length : 0;
     const err = d && d.error;
@@ -1853,7 +1959,7 @@ function updateFileCountBadge() {
 ══════════════════════════════════════════════════════════════════════ */
 function renderScenarioSelect() {
   const sel       = document.getElementById('scenarioSelect');
-  const fileName  = SWAGGER_FILES[activeFile]?.name ?? '';
+  const fileName  = _activeSwaggerFiles[activeFile]?.name ?? '';
   const available = SCENARIOS.filter(s => s.appliesTo.includes(fileName));
 
   sel.innerHTML = '<option value="">전체 API 실행</option>' +
@@ -3075,18 +3181,58 @@ function showToast(msg, type = 'info') {
 /* ══════════════════════════════════════════════════════════════════════
    ENVIRONMENT
 ══════════════════════════════════════════════════════════════════════ */
-function initEnvSelect() {
-  const sel = document.getElementById('envSelect');
+function initServiceSelect() {
+  const sel = document.getElementById('serviceSelect');
   if (!sel) return;
-  sel.innerHTML = ENVIRONMENTS.map((e, i) =>
-    `<option value="${i}">${e.label}</option>`
-  ).join('');
+  sel.innerHTML = SERVICES.map((s, i) => `<option value="${i}">${s.name}</option>`).join('');
+  const saved = localStorage.getItem('sc_service');
+  if (saved !== null) {
+    const idx = parseInt(saved);
+    if (SERVICES[idx]) { sel.value = idx; activeService = SERVICES[idx]; }
+  }
+}
+
+function onServiceChange(idx) {
+  saveBaseUrl();
+  activeService = SERVICES[parseInt(idx)] || SERVICES[0];
+  localStorage.setItem('sc_service', idx);
+  // 현재 환경이 이 서비스에서 지원 안 되면 첫 번째 지원 환경으로 이동
+  if (!activeService.supportedEnvs.includes(activeEnv.name)) {
+    const firstSupported = ENVIRONMENTS.findIndex(e => activeService.supportedEnvs.includes(e.name));
+    if (firstSupported >= 0) {
+      saveEnvAuth(activeEnv.name);
+      activeEnv = ENVIRONMENTS[firstSupported];
+      localStorage.setItem('sc_env', firstSupported);
+    }
+  }
+  updateEnvBtnGroup();
+  loadBaseUrl();
+  loadAllSwagger().then(() => renderScenarioSelect());
+}
+
+function initEnvSelect() {
   const saved = localStorage.getItem('sc_env');
   if (saved !== null) {
-    sel.value  = saved;
-    activeEnv  = ENVIRONMENTS[parseInt(saved)] || ENVIRONMENTS[0];
-    if (activeEnv.baseUrl) document.getElementById('baseUrl').value = activeEnv.baseUrl;
+    activeEnv = ENVIRONMENTS[parseInt(saved)] || ENVIRONMENTS[0];
   }
+  updateEnvBtnGroup();
+  updateTokenBtnTooltip();
+}
+
+function updateEnvBtnGroup() {
+  const group = document.getElementById('envBtnGroup');
+  if (!group) return;
+  group.innerHTML = ENVIRONMENTS.map((e, i) => {
+    const supported = activeService.supportedEnvs.includes(e.name);
+    const isActive  = activeEnv.name === e.name;
+    return `<span class="env-opt-wrap"
+              data-disabled="${!supported}"
+              ${!supported ? 'data-tip="지원하지 않는 환경입니다."' : ''}>
+      <button class="env-btn${isActive ? ' active' : ''}"
+              ${!supported ? 'disabled' : ''}
+              onclick="onEnvChange(${i})">${e.label}</button>
+    </span>`;
+  }).join('');
   updateTokenBtnTooltip();
 }
 
@@ -3095,8 +3241,7 @@ function onEnvChange(idx) {
   activeEnv = ENVIRONMENTS[parseInt(idx)] || ENVIRONMENTS[0];
   localStorage.setItem('sc_env', idx);
   loadEnvAuth(activeEnv.name);
-  if (activeEnv.baseUrl) document.getElementById('baseUrl').value = activeEnv.baseUrl;
-  updateTokenBtnTooltip();
+  updateEnvBtnGroup();
 }
 
 function updateTokenBtnTooltip() {
@@ -3435,8 +3580,10 @@ window.addEventListener('beforeunload', e => {
 
 
 /* ── Init ─────────────────────────────────────────────────────────── */
+initServiceSelect();
 initEnvSelect();
 (function migrateStorage() {
+  // 기존 flat 키(sc_did 등)를 현재 env 키(sc_did_stage 등)로 마이그레이션
   const envName = activeEnv.name;
   const hasNewData = Object.values(STORAGE_KEYS).some(k => localStorage.getItem(k + '_' + envName));
   if (!hasNewData) {
@@ -3445,6 +3592,15 @@ initEnvSelect();
       if (old) { localStorage.setItem(key + '_' + envName, old); localStorage.removeItem(key); }
     }
   }
+  // 기존 flat baseUrl(sc_url_stage 등) → service+env 키로 마이그레이션
+  ENVIRONMENTS.forEach(env => {
+    const oldKey = 'sc_url_' + env.name;
+    const old = localStorage.getItem(oldKey);
+    if (old) {
+      localStorage.setItem(`sc_url_pubsub_${env.name}`, old);
+      localStorage.removeItem(oldKey);
+    }
+  });
 })();
 loadAuth();
 loadVarsFromStorage();
