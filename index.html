@@ -901,10 +901,11 @@ const SERVICES = [
 let activeService = SERVICES[0];
 
 const SWAGGER_FILES = [
-  { name: "console_v1", file: "./swagger/console_v1.json" },
-  { name: "console_v2", file: "./swagger/console_v2.json" },
-  { name: "pubsub_v1",  file: "./swagger/pubsub_v1.json" },
-  { name: "pubsub_v2",  file: "./swagger/pubsub_v2.json" },
+  { name: "console_v1",   file: "./swagger/console_v1.json" },
+  { name: "console_v2",   file: "./swagger/console_v2.json" },
+  { name: "pubsub_v1",    file: "./swagger/pubsub_v1.json" },
+  { name: "pubsub_v2",    file: "./swagger/pubsub_v2.json" },
+  { name: "dataquery_v1", file: "./swagger/dataquery_v1.json" },
 ];
 </script>
 
@@ -1448,6 +1449,73 @@ const SCENARIOS = [
     ],
     teardown: []
   },
+  /* ── Data Query 시나리오 ──────────────────────────────────────────── */
+  {
+    id: 'dq1', emoji: '🔍', name: '[DQ] 시나리오 1. 서비스 기본 확인',
+    appliesTo: ['dataquery_v1'],
+    setup: [],
+    apis: [
+      { method: 'GET', pathIncludes: '/v1/start',    assert: [{ type: 'statusRange', min: 200, max: 299 }] },
+      { method: 'GET', pathIncludes: 'dashboard',    assert: [{ type: 'statusRange', min: 200, max: 299 }] },
+      {
+        method: 'GET', pathIncludes: 'data-source', pathNotIncludes: '{data-source|database|type|mysql|postgresql|jdbc|data-query',
+        assert: [{ type: 'statusRange', min: 200, max: 299 }]
+      },
+      { method: 'GET', pathIncludes: '/v1/storage', pathNotIncludes: '{bucket', assert: [{ type: 'statusRange', min: 200, max: 299 }] },
+    ],
+    teardown: []
+  },
+  {
+    id: 'dq2', emoji: '▶️', name: '[DQ] 시나리오 2. 쿼리 실행 플로우',
+    appliesTo: ['dataquery_v1'],
+    setup: [],
+    apis: [
+      {
+        method: 'POST', pathIncludes: '/v1/query', pathNotIncludes: 'history|saved|abort|data-query',
+        extract: [{ from: 'body.queryInfo.queryId', ctxKey: 'dqQueryId' }],
+        assert: [{ type: 'statusRange', min: 200, max: 299 }, { type: 'bodyExists', path: 'queryInfo' }]
+      },
+      {
+        method: 'GET', pathIncludes: '/v1/query/', pathNotIncludes: 'history|abort|data-query',
+        inject: [{ ctxKey: 'dqQueryId', into: 'path', param: 'query-id' }],
+        assert: [{ type: 'statusRange', min: 200, max: 299 }, { type: 'bodyExists', path: 'queryInfo' }]
+      }
+    ],
+    teardown: [
+      {
+        method: 'PUT', pathIncludes: 'abort', pathNotIncludes: 'data-query',
+        inject: [{ ctxKey: 'dqQueryId', into: 'path', param: 'query-id' }]
+      }
+    ]
+  },
+  {
+    id: 'dq3', emoji: '💾', name: '[DQ] 시나리오 3. 저장 쿼리 CRUD',
+    appliesTo: ['dataquery_v1'],
+    setup: [],
+    apis: [
+      {
+        method: 'POST', pathIncludes: 'saved-query', pathNotIncludes: '{query|data-query',
+        extract: [{ from: 'body.savedQueryId', ctxKey: 'dqSavedQueryId' }],
+        assert: [{ type: 'statusRange', min: 200, max: 299 }, { type: 'bodyExists', path: 'savedQueryId' }]
+      },
+      {
+        method: 'GET', pathIncludes: 'saved-query/', pathNotIncludes: 'data-query',
+        inject: [{ ctxKey: 'dqSavedQueryId', into: 'path', param: 'query-id' }],
+        assert: [{ type: 'statusRange', min: 200, max: 299 }, { type: 'bodyExists', path: 'savedQueryId' }]
+      },
+      {
+        method: 'PUT', pathIncludes: 'saved-query/', pathNotIncludes: 'data-query',
+        inject: [{ ctxKey: 'dqSavedQueryId', into: 'path', param: 'query-id' }],
+        assert: [{ type: 'statusRange', min: 200, max: 299 }]
+      }
+    ],
+    teardown: [
+      {
+        method: 'DELETE', pathIncludes: 'saved-query', pathNotIncludes: '{query|data-query',
+        inject: [{ ctxKey: 'dqSavedQueryId', into: 'query', param: 'queryIds' }]
+      }
+    ]
+  },
 ];
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1549,6 +1617,10 @@ function injectContext(injects, ep, bodyStr) {
 
     if (rule.into === 'path') {
       newEp = { ...newEp, fullPath: (newEp.fullPath || newEp.path).replace(`{${rule.param}}`, encodeURIComponent(String(val))) };
+    } else if (rule.into === 'query') {
+      const currentPath = newEp.fullPath || newEp.path;
+      const sep = currentPath.includes('?') ? '&' : '?';
+      newEp = { ...newEp, fullPath: currentPath + sep + encodeURIComponent(rule.param) + '=' + encodeURIComponent(String(val)) };
     } else if (rule.into === 'body' && newBody) {
       try {
         const obj      = JSON.parse(newBody);
@@ -3029,7 +3101,7 @@ async function executeApi(fileIdx, ep, globalSubName = null, globalTopicName = n
   });
 
   let url = base + resolvedPath;
-  if (queryStr.length) url += '?' + queryStr.join('&');
+  if (queryStr.length) url += (resolvedPath.includes('?') ? '&' : '?') + queryStr.join('&');
 
   let bodyStr = null;
   if (['POST','PUT','PATCH'].includes(ep.method)) {
