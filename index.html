@@ -1788,6 +1788,8 @@ const SUB_ALIASES     = ['subscription','subscriptionName','subscription_name','
 const TOPIC_ALIASES   = ['topic','topicName','topic_name','topicId','topic_id','topic.name'];
 const DOMAIN_ALIASES  = ['domain','domainId','domain_id','domainID','subscription.domain','topic.domain'];
 const PROJECT_ALIASES = ['project','projectId','project_id','projectID','subscription.project','topic.project'];
+// 전역 Auth Panel에서 이미 처리되는 헤더 — 개별 API 파라미터 입력에서 숨김
+const AUTH_HEADER_ALIASES = ['x-auth-token','X-Auth-Token','x-subject-token','Credential-ID','Credential-Secret','credential-id','credential-secret'];
 
 // 파라미터 표시명 정규화: subscription.domain → domain, topic.project → project 등
 function normalizeParamName(name) {
@@ -2204,8 +2206,10 @@ function showDetail(fileIdx, ep) {
   const headerParams= ep.parameters.filter(p => p.in === 'header');
   const bodySchema  = getBodySchema(ep, spec);
 
-  // body 파라미터는 파라미터 목록에서 제외 (Request Body 섹션에서 별도 처리)
-  const visibleParams = ep.parameters.filter(p => p.in !== 'body');
+  // body 파라미터 및 전역 Auth Panel이 이미 처리하는 헤더는 제외
+  const visibleParams = ep.parameters.filter(p =>
+    p.in !== 'body' && !(p.in === 'header' && AUTH_HEADER_ALIASES.some(a => a.toLowerCase() === p.name.toLowerCase()))
+  );
 
   let paramsHtml = '';
   if (visibleParams.length > 0) {
