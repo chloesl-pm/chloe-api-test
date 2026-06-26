@@ -13,7 +13,7 @@ import urllib.error
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 
-PROXY_TIMEOUT = 15  # 초 — 이 시간 안에 응답 없으면 에러 반환
+PROXY_TIMEOUT = 30  # 초 — 이 시간 안에 응답 없으면 에러 반환
 
 PORT = int(os.environ.get('PORT', 8765))
 

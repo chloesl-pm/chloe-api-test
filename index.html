@@ -3621,9 +3621,7 @@ async function fetchAuthToken() {
     let token = null;
     const iamUrl = getIamTokenUrl();
 
-    // localhost: proxy 경유 (CORS 우회)
-    // 외부(Render 등): 브라우저 직접 fetch (VPN 연결 시 브라우저가 IAM에 직접 접근)
-    const useProxyForIam = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    const useProxyForIam = location.protocol !== 'file:';
     if (useProxyForIam) {
       const r = await fetch('/proxy', {
         method: 'POST',
