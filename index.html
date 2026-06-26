@@ -3228,7 +3228,7 @@ function renderHarnessReport(report) {
   if (!el) {
     el = document.createElement('div');
     el.id = 'harnessReport';
-    el.style.cssText = 'background:#f0f7ff;border-top:2px solid #93c5fd;padding:12px 20px;font-size:12px;max-height:260px;overflow-y:auto;flex-shrink:0';
+    el.style.cssText = 'position:relative;background:#f0f7ff;border-top:2px solid #93c5fd;padding:18px 20px 12px;font-size:12px;height:260px;overflow-y:auto;flex-shrink:0';
     document.querySelector('.summary-bar').insertAdjacentElement('beforebegin', el);
   }
 
@@ -3236,6 +3236,10 @@ function renderHarnessReport(report) {
   const passRate = summary.total > 0 ? Math.round((summary.pass / summary.total) * 100) : 0;
 
   el.innerHTML = `
+    <div onmousedown="startHarnessResize(event)" title="드래그하여 높이 조절"
+      style="position:absolute;top:0;left:0;right:0;height:10px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;background:rgba(147,197,253,0.25);border-bottom:1px solid var(--border)">
+      <div style="width:36px;height:3px;background:#93c5fd;border-radius:2px;pointer-events:none"></div>
+    </div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
       <strong style="color:var(--text)">🧪 Harness Report</strong>
       <span style="color:var(--text-muted)">${scenarioName}</span>
@@ -3280,6 +3284,28 @@ function copyHarnessReport() {
   navigator.clipboard.writeText(JSON.stringify(window._lastHarnessReport, null, 2))
     .then(() => showToast('✅ Harness Report가 클립보드에 복사되었습니다.', 'success'))
     .catch(() => showToast('복사 실패', 'error'));
+}
+
+function startHarnessResize(e) {
+  e.preventDefault();
+  const el = document.getElementById('harnessReport');
+  if (!el) return;
+  const startY = e.clientY;
+  const startH = el.offsetHeight;
+
+  function onMove(ev) {
+    const delta = startY - ev.clientY; // 위로 드래그 → delta 양수 → 높이 증가
+    const newH  = Math.max(80, Math.min(window.innerHeight * 0.8, startH + delta));
+    el.style.height = newH + 'px';
+  }
+  function onUp() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup',   onUp);
+    document.body.style.userSelect = '';
+  }
+  document.body.style.userSelect = 'none';
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup',   onUp);
 }
 
 function showToast(msg, type = 'info') {
